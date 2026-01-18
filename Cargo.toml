@@ -1,0 +1,11 @@
+[package]
+name = "scheduler-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+chrono = { version = "0.4.43", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+thiserror = "2.0.17"
+tokio = { version = "1.49.0", features = ["full"] }
+uuid = { version = "1.19.0", features = ["serde", "v4"] }
