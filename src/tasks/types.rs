@@ -1,7 +1,7 @@
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
-
 use std::time::Duration;
 use uuid::Uuid;
 
@@ -16,16 +16,14 @@ pub enum TaskKind {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Task {
-    id: Uuid,
-    name: String,
-    last_run: Option<DateTime<Utc>>,
-    kind: TaskKind,
+    pub name: String,
+    pub last_run: Option<DateTime<Utc>>,
+    pub kind: TaskKind,
 }
 
 impl Task {
     pub fn new(name: &str, kind: TaskKind) -> Self {
         Self {
-            id: Uuid::nil(),
             name: name.to_string(),
             last_run: None,
             kind,
@@ -43,10 +41,19 @@ impl Task {
     }
 }
 
-pub trait TaskStorage {
-    fn add(&mut self, task: Task) -> Uuid;
-    fn remove(&mut self, id: Uuid) -> bool;
+pub trait TaskStorage<T, E> {
+    fn add(&mut self, task: Task) -> Result<T, E>;
+    fn remove(&mut self, id: T) -> bool;
 
-    fn get_by_id(&self, id: Uuid) -> Option<Task>;
-    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid>;
+    fn get_by_id(&self, id: T) -> Option<Task>;
+    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<T>;
+}
+
+#[async_trait]
+pub trait AsyncTaskStorage<T, E> {
+    async fn add(&mut self, task: Task) -> Result<T, E>;
+    async fn remove(&mut self, id: T) -> bool;
+
+    async fn get_by_id(&self, id: T) -> Option<Task>;
+    async fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<T>;
 }
