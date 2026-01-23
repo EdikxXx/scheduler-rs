@@ -1,0 +1,10 @@
+repos:
+  - repo: local
+    hooks:
+      - id: rust-clippy
+        name: clippy
+        description: Run clippy on Rust files to catch common mistakes.
+        entry: cargo clippy --workspace --all-targets --all-features -- -D warnings
+        language: system
+        types: [file, rust]
+        pass_filenames: false

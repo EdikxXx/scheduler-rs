@@ -52,7 +52,7 @@ impl TaskStorage<StorageError> for MemStorage {
         Ok(Some(task))
     }
 
-    fn get_by_id(&self, id: Uuid) -> Result<Option<Task>, StorageError> {
+    fn get_by_id(&self, _id: Uuid) -> Result<Option<Task>, StorageError> {
         todo!()
     }
 }
