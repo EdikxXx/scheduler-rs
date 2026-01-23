@@ -21,7 +21,7 @@ impl MemStorage {
 
 impl TaskStorage<StorageError> for MemStorage {
     fn add(&self, task: Task) -> Result<Uuid, StorageError> {
-        let key = task.id.clone();
+        let key = task.id;
 
         match self.tasks.entry(key) {
             Entry::Occupied(_) => Err(StorageError::DuplicateKey(task.name)),

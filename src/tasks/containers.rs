@@ -1,6 +1,5 @@
 use crate::types::Job;
 use std::collections::HashMap;
-use uuid::Error;
 
 /// Container for storage map task name and an execute code
 #[derive(Default)] // Упрощает new()
