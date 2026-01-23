@@ -1,24 +1,24 @@
 use async_trait::async_trait;
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::time::Duration;
+use time::OffsetDateTime as DateTime;
 use uuid::Uuid;
 
 pub type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
 pub type Job = Box<dyn Fn() -> BoxedFuture + Sync + Send>;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
 pub enum TaskKind {
     Interval(Duration),
-    Once(DateTime<Utc>),
+    Once(DateTime),
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Task {
     pub id: Uuid,
     pub name: String,
-    pub last_run: Option<DateTime<Utc>>,
+    pub last_run: Option<DateTime>,
     pub kind: TaskKind,
 }
 
@@ -32,11 +32,11 @@ impl Task {
         }
     }
 
-    pub fn next_run(&mut self) -> DateTime<Utc> {
+    pub fn next_run(&self) -> DateTime {
         match self.kind {
             TaskKind::Interval(dur) => match self.last_run {
                 Some(last) => last + dur,
-                None => Utc::now(),
+                None => DateTime::now_utc(),
             },
             TaskKind::Once(run_time) => run_time,
         }
@@ -44,11 +44,9 @@ impl Task {
 }
 
 pub trait TaskStorage<E> {
-    fn add(&mut self, task: Task) -> Result<Uuid, E>;
-    fn remove(&mut self, id: Uuid) -> Option<Task>;
-
-    fn get_by_id(&self, id: Uuid) -> Option<Task>;
-    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid>;
+    fn add(&self, task: Task) -> Result<Uuid, E>;
+    fn remove(&self, id: Uuid) -> Result<Option<Task>, E>;
+    fn get_by_id(&self, id: Uuid) -> Result<Option<Task>, E>;
 }
 
 #[async_trait]
@@ -57,5 +55,5 @@ pub trait AsyncTaskStorage<E> {
     async fn remove(&mut self, id: &Uuid) -> bool;
 
     async fn get_by_id(&self, id: Uuid) -> Option<Task>;
-    async fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid>;
+    async fn get_due_tasks(&self, now: DateTime, limit: usize) -> Vec<Uuid>;
 }
