@@ -16,6 +16,7 @@ pub enum TaskKind {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Task {
+    pub id: Uuid,
     pub name: String,
     pub last_run: Option<DateTime<Utc>>,
     pub kind: TaskKind,
@@ -24,6 +25,7 @@ pub struct Task {
 impl Task {
     pub fn new(name: &str, kind: TaskKind) -> Self {
         Self {
+            id: Uuid::now_v7(),
             name: name.to_string(),
             last_run: None,
             kind,
@@ -41,19 +43,19 @@ impl Task {
     }
 }
 
-pub trait TaskStorage<T, E> {
-    fn add(&mut self, task: Task) -> Result<T, E>;
-    fn remove(&mut self, id: T) -> bool;
+pub trait TaskStorage<E> {
+    fn add(&mut self, task: Task) -> Result<Uuid, E>;
+    fn remove(&mut self, id: Uuid) -> Option<Task>;
 
-    fn get_by_id(&self, id: T) -> Option<Task>;
-    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<T>;
+    fn get_by_id(&self, id: Uuid) -> Option<Task>;
+    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid>;
 }
 
 #[async_trait]
-pub trait AsyncTaskStorage<T, E> {
-    async fn add(&mut self, task: Task) -> Result<T, E>;
-    async fn remove(&mut self, id: T) -> bool;
+pub trait AsyncTaskStorage<E> {
+    async fn add(&mut self, task: Task) -> Result<Uuid, E>;
+    async fn remove(&mut self, id: &Uuid) -> bool;
 
-    async fn get_by_id(&self, id: T) -> Option<Task>;
-    async fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<T>;
+    async fn get_by_id(&self, id: Uuid) -> Option<Task>;
+    async fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid>;
 }

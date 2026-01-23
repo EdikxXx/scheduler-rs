@@ -3,9 +3,10 @@ use crate::types::{Task, TaskStorage};
 use chrono::{DateTime, Utc};
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use uuid::Uuid;
 
 pub struct MemStorage {
-    tasks: HashMap<String, Task>,
+    tasks: HashMap<Uuid, Task>,
 }
 
 impl MemStorage {
@@ -16,28 +17,31 @@ impl MemStorage {
     }
 }
 
-impl TaskStorage<String, StorageError> for MemStorage {
-    fn add(&mut self, task: Task) -> Result<String, StorageError> {
-        let key = task.name.clone();
+impl TaskStorage<StorageError> for MemStorage {
+    fn add(&mut self, task: Task) -> Result<Uuid, StorageError> {
+        let key = task.id.clone();
 
         match self.tasks.entry(key) {
-            Entry::Occupied(entry) => Err(StorageError::DuplicateKey(task.name)),
+            Entry::Occupied(_) => Err(StorageError::DuplicateKey(task.name)),
             Entry::Vacant(entry) => {
-                let return_value = entry.key().clone();
                 entry.insert(task);
-                Ok(return_value)
+                Ok(key)
             }
         }
     }
 
-    fn remove(&mut self, id: String) -> bool {
+    fn remove(&mut self, id: Uuid) -> Option<Task> {
+        match self.tasks.entry(id) {
+            Entry::Occupied(entry) => Some(entry.remove()),
+            Entry::Vacant(_) => None,
+        }
+    }
+
+    fn get_by_id(&self, id: Uuid) -> Option<Task> {
         todo!()
     }
 
-    fn get_by_id(&self, id: String) -> Option<Task> {
-        todo!()
-    }
-    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<String> {
+    fn get_due_tasks(&self, now: DateTime<Utc>, limit: usize) -> Vec<Uuid> {
         todo!()
     }
 }
