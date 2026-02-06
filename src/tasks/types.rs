@@ -1,59 +1,83 @@
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use std::pin::Pin;
-use std::time::Duration;
-use time::OffsetDateTime as DateTime;
 use uuid::Uuid;
 
-pub type BoxedFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
-pub type Job = Box<dyn Fn() -> BoxedFuture + Sync + Send>;
+// --- State Markers ---
+pub struct Pending;
+pub struct Waiting;
+pub struct Running;
+pub struct Success;
+pub struct Failed;
+pub struct Retrying;
+pub struct Canceled;
 
-#[derive(Serialize, Deserialize, Debug, Copy, Clone)]
-pub enum TaskKind {
-    Interval(Duration),
-    Once(DateTime),
+// --- Base Interface ---
+/// The "Blueprint" of your Task in a Distributed System
+#[async_trait]
+pub trait TaskState: Send + Sync {
+    /// Unique Task Data (Must be serializable to cross the Broker boundary)
+    type Payload: Send + Sync + Serialize + for<'de> Deserialize<'de>;
+
+    /// Current State Marker (Pending, Running, etc.)
+    type State: Send + Sync;
+
+    fn id(&self) -> Uuid;
+    fn payload(&self) -> &Self::Payload;
+    fn task_name() -> &'static str;
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Task {
-    pub id: Uuid,
-    pub name: String,
-    pub last_run: Option<DateTime>,
-    pub kind: TaskKind,
-}
+// --- Lifecycle Transitions (Async) ---
 
-impl Task {
-    pub fn new(name: &str, kind: TaskKind) -> Self {
-        Self {
-            id: Uuid::now_v7(),
-            name: name.to_string(),
-            last_run: None,
-            kind,
-        }
-    }
+#[async_trait]
+pub trait PendingTask: TaskState {
+    type Waiting: WaitingTask;
+    type Canceled: CanceledTask;
 
-    pub fn next_run(&self) -> DateTime {
-        match self.kind {
-            TaskKind::Interval(dur) => match self.last_run {
-                Some(last) => last + dur,
-                None => DateTime::now_utc(),
-            },
-            TaskKind::Once(run_time) => run_time,
-        }
-    }
-}
+    /// Sends the task payload to the Message Broker (Network I/O)
+    async fn submit(self) -> Self::Waiting;
 
-pub trait TaskStorage<E> {
-    fn add(&self, task: Task) -> Result<Uuid, E>;
-    fn remove(&self, id: Uuid) -> Result<Option<Task>, E>;
-    fn get_by_id(&self, id: Uuid) -> Result<Option<Task>, E>;
+    /// Flags the task as canceled in the local or remote registry
+    async fn cancel(self) -> Self::Canceled;
 }
 
 #[async_trait]
-pub trait AsyncTaskStorage<E> {
-    async fn add(&mut self, task: Task) -> Result<Uuid, E>;
-    async fn remove(&mut self, id: &Uuid) -> bool;
+pub trait WaitingTask: TaskState {
+    type Running: RunningTask;
 
-    async fn get_by_id(&self, id: Uuid) -> Option<Task>;
-    async fn get_due_tasks(&self, now: DateTime, limit: usize) -> Vec<Uuid>;
+    /// Fetches the task from the queue and marks it as active for the current Worker
+    async fn dispatch(self) -> Self::Running;
+}
+
+#[async_trait]
+pub trait RunningTask: TaskState {
+    type Completed: SuccessTask;
+    type Failed: FailedTask;
+    type Retrying: RetryingTask;
+
+    /// The core business logic. Async allows non-blocking I/O within the task itself.
+    async fn run(&mut self) -> Result<(), String>;
+
+    /// Commits the result to the Backend and removes the task from the active queue
+    async fn complete(self) -> Self::Completed;
+
+    /// Logs the failure and updates the task status in the Broker
+    async fn fail(self, reason: String) -> Self::Failed;
+
+    /// Schedules a retry with a specific backoff delay in the Broker
+    async fn retry(self, reason: String) -> Self::Retrying;
+}
+
+// --- Terminal State Definitions ---
+pub trait SuccessTask: TaskState {}
+pub trait FailedTask: TaskState {
+    fn reason(&self) -> &str;
+}
+pub trait CanceledTask: TaskState {}
+
+#[async_trait]
+pub trait RetryingTask: TaskState {
+    type Waiting: WaitingTask;
+
+    /// Re-inserts the task into the Broker after the retry delay expires
+    async fn reschedule(self) -> Self::Waiting;
 }
