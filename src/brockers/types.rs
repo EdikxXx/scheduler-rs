@@ -5,7 +5,7 @@ use uuid::Uuid;
 #[async_trait]
 pub trait Broker: Send + Sync {
     /// The message type that travels through the broker
-    type Message: Send + Sync;
+    type Message: Send + Sync + From<Vec<u8>>;
 
     /// Sends a message into the pipeline (Exchange/Queue)
     async fn publish(&self, topic: &str, message: Self::Message) -> Result<()>;
