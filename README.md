@@ -16,7 +16,7 @@ This project implements a robust, asynchronous task scheduler with the following
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Scheduler Core                            │
+│                    Scheduler Core                           │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
 │  │   Scheduler  │  │    Broker    │  │   Storage    │       │
 │  │   (Runtime)  │──│  (Message    │──│  (Persistence│       │
